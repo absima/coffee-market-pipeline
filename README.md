@@ -1,7 +1,6 @@
 # Coffee Market Analytics (LLM-assisted)
 
-A small, reproducible market time-series analytics pipeline using coffee (Arabica) prices.  
-It ingests public data, stores it in SQLite, generates time-series features, trains a simple baseline model, evaluates performance, and produces a concise analyst-style note using a **local LLM** (Ollama).
+A small, reproducible market time-series analytics pipeline using coffee (Arabica) prices. It fetches public data, stores it in SQLite, generates time-series features, trains a simple baseline model, evaluates performance, and produces a concise analyst-style note using a **local LLM** (Ollama).
 
 The LLM is used for **interpretation and reporting**, not for prediction.
 
