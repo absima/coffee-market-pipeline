@@ -1,0 +1,93 @@
+configfile: "config/config.yaml"
+
+SERIES_ID = config["series"]["fred_id"]
+DB_PATH = config["db"]["path"]
+TABLE = config["db"]["table"]
+
+LAGS = ",".join(str(x) for x in config["features"]["lags"])
+WINS = ",".join(str(x) for x in config["features"]["rolling_windows"])
+TEST_SIZE = config["model"]["test_size"]
+
+rule all:
+    input:
+        "reports/metrics.json",
+        "reports/preds.csv",
+        "reports/latest_note.md"
+
+
+rule ingest:
+    output:
+        "data/raw/coffee.csv"
+    shell:
+        "mkdir -p data/raw && python src/fetch_tseries.py --series-id {SERIES_ID} --out-csv {output}"
+
+rule store:
+    input:
+        "data/raw/coffee.csv"
+    output:
+        DB_PATH
+    shell:
+        "mkdir -p data && python src/store_sqlite.py --in-csv {input} --db-path {DB_PATH} --table {TABLE}"
+
+rule features:
+    input:
+        DB_PATH
+    output:
+        "data/processed/coffee_features.csv"
+    shell:
+        (
+            "mkdir -p data/processed && "
+            "python src/features.py "
+            "--db-path {DB_PATH} "
+            "--in-table {TABLE} "
+            "--out-csv {output} "
+            "--lags {LAGS} "
+            "--windows {WINS}"
+        )
+
+rule train_eval:
+    input:
+        "data/processed/coffee_features.csv"
+    output:
+        metrics="reports/metrics.json",
+        preds="reports/preds.csv"
+    shell:
+        (
+            "mkdir -p reports && "
+            "python src/train_eval.py "
+            "--features-csv {input} "
+            "--out-metrics {output.metrics} "
+            "--out-preds {output.preds} "
+            "--test-size {TEST_SIZE}"
+        )
+
+# rule llm_report:
+#     input:
+#         metrics="reports/metrics.json",
+#         preds="reports/preds.csv"
+#     output:
+#         "reports/latest_note.md"
+#     params:
+#         recent_months=config["reporting"]["recent_months"]
+#     shell:
+#         "python src/llm_report.py --metrics-json {input.metrics} --preds-csv {input.preds} --out-md {output} --recent-months {params.recent_months} --model llama3.1:8b"
+rule llm_report:
+    input:
+        metrics="reports/metrics.json",
+        preds="reports/preds.csv"
+    output:
+        "reports/latest_note.md"
+    params:
+        recent_months=config["reporting"]["recent_months"],
+        llm_model=config["llm"]["model"],
+        llm_host=config["llm"]["host"]
+    shell:
+        (
+            "python src/llm_report.py "
+            "--metrics-json {input.metrics} "
+            "--preds-csv {input.preds} "
+            "--out-md {output} "
+            "--recent-months {params.recent_months} "
+            "--model {params.llm_model} "
+            "--host {params.llm_host}"
+        )

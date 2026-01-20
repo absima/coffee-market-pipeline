@@ -1,0 +1,23 @@
+{
+  "rows_total": 412,
+  "rows_train": 330,
+  "rows_test": 82,
+  "model": "Ridge(alpha=1.0)",
+  "mae": 0.04823131030707509,
+  "rmse": 0.06071984121644791,
+  "test_period_start": "2018-08-01",
+  "test_period_end": "2025-05-01",
+  "n_features": 10,
+  "features_used": [
+    "r_lag_1",
+    "r_lag_3",
+    "r_lag_6",
+    "r_lag_12",
+    "r_roll_mean_3",
+    "r_roll_std_3",
+    "r_roll_mean_6",
+    "r_roll_std_6",
+    "r_roll_mean_12",
+    "r_roll_std_12"
+  ]
+}

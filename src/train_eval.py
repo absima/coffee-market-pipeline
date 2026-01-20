@@ -1,0 +1,113 @@
+from __future__ import annotations
+
+import argparse
+import json
+import os
+
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import Ridge
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+
+
+def timeSplit(df: pd.DataFrame, test_size: float) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Time-ordered train/test split (no shuffling).
+
+    Parameters
+    ----------
+    df:
+        Input dataframe sorted by time (or to be treated as time-ordered).
+    test_size:
+        Fraction of rows to reserve for the test set.
+
+    Returns
+    -------
+    (train_df, test_df):
+        Two dataframes split by time order.
+    """
+    n = len(df)
+    n_test = max(1, int(round(n * test_size)))
+    train = df.iloc[: n - n_test].copy()
+    test = df.iloc[n - n_test :].copy()
+    return train, test
+
+
+def main(features_csv: str, out_metrics: str, out_preds: str, test_size: float) -> None:
+    """
+    Train a baseline Ridge regression model and write evaluation artifacts.
+
+    Inputs
+    ------
+    features_csv:
+        Feature dataset produced by the feature engineering step.
+
+    Outputs
+    -------
+    out_metrics:
+        JSON file with MAE/RMSE and metadata.
+    out_preds:
+        CSV with columns [date, y_true, y_pred] over the test period.
+
+    Notes
+    -----
+    - Uses a time-ordered split to avoid leakage.
+    - Predicts y_next_return (one-step-ahead log return).
+    """
+    df = pd.read_csv(features_csv, parse_dates=["date"]).sort_values("date")
+
+    target = "y_next_return"
+    drop_cols = {"date", "value", "log_price", "log_return", target}
+    feature_cols = [c for c in df.columns if c not in drop_cols]
+
+    train, test = timeSplit(df, test_size=test_size)
+
+    X_train = train[feature_cols].to_numpy()
+    y_train = train[target].to_numpy()
+    X_test = test[feature_cols].to_numpy()
+    y_test = test[target].to_numpy()
+
+    model = Ridge(alpha=1.0)
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+
+    mae = float(mean_absolute_error(y_test, y_pred))
+    rmse = float(np.sqrt(mean_squared_error(y_test, y_pred)))
+
+    metrics = {
+        "rows_total": int(len(df)),
+        "rows_train": int(len(train)),
+        "rows_test": int(len(test)),
+        "model": "Ridge(alpha=1.0)",
+        "mae": mae,
+        "rmse": rmse,
+        "test_period_start": str(test["date"].min().date()),
+        "test_period_end": str(test["date"].max().date()),
+        "n_features": int(len(feature_cols)),
+        "features_used": feature_cols,
+    }
+
+    os.makedirs(os.path.dirname(out_metrics), exist_ok=True)
+    with open(out_metrics, "w", encoding="utf-8") as f:
+        json.dump(metrics, f, indent=2)
+
+    os.makedirs(os.path.dirname(out_preds), exist_ok=True)
+    pred_df = test[["date"]].copy()
+    pred_df["y_true"] = y_test
+    pred_df["y_pred"] = y_pred
+    pred_df.to_csv(out_preds, index=False)
+
+    print(f"Wrote metrics -> {out_metrics}")
+    print(f"Wrote predictions -> {out_preds}")
+    print(f"MAE={mae:.6f} RMSE={rmse:.6f}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--features-csv", required=True)
+    parser.add_argument("--out-metrics", required=True)
+    parser.add_argument("--out-preds", required=True)
+    parser.add_argument("--test-size", type=float, default=0.2)
+    args = parser.parse_args()
+
+    main(args.features_csv, args.out_metrics, args.out_preds, args.test_size)

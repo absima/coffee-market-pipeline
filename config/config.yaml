@@ -1,0 +1,23 @@
+series:
+  name: "Coffee (Arabica)"
+  fred_id: "PCOFFOTMUSDM"
+  frequency: "monthly"
+
+db:
+  path: "data/market.db"
+  table: "coffee_prices"
+
+features:
+  lags: [1, 3, 6, 12]
+  rolling_windows: [3, 6, 12]
+
+model:
+  test_size: 0.2
+
+reporting:
+  recent_months: 12
+
+llm:
+  provider: "ollama"
+  model: "llama3.1:8b"
+  host: "http://localhost:11434"
