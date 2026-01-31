@@ -1,4 +1,4 @@
-![Reproducible coffee market analytics pipeline](images/pipeline_overview.png)
+![Reproducible coffee market analytics pipeline](images/coffee.png)
 
 # Coffee Market Analytics (LLM-assisted)
 
